@@ -1,7 +1,9 @@
 import type { DemoConfig } from "../types";
+import { demoDinRailPanelEntities } from "./din-rail-panel";
 
-export const demoEntitiesSections: DemoConfig["entities"] = (localize) =>
-  Object.values({
+export const demoEntitiesSections: DemoConfig["entities"] = (localize) => [
+  ...demoDinRailPanelEntities,
+  ...Object.values({
     "cover.living_room_garden_shutter": {
       entity_id: "cover.living_room_garden_shutter",
       state: "open",
@@ -306,6 +308,16 @@ export const demoEntitiesSections: DemoConfig["entities"] = (localize) =>
         friendly_name: "Electric meter voltage",
       },
     },
+    "sensor.electric_meter_current": {
+      entity_id: "sensor.electric_meter_current",
+      state: "3.44",
+      attributes: {
+        state_class: "measurement",
+        unit_of_measurement: "A",
+        device_class: "current",
+        friendly_name: "Electric meter current",
+      },
+    },
     "sensor.electricity_maps_grid_fossil_fuel_percentage": {
       entity_id: "sensor.electricity_maps_grid_fossil_fuel_percentage",
       state: "9.84",
@@ -460,6 +472,14 @@ export const demoEntitiesSections: DemoConfig["entities"] = (localize) =>
         friendly_name: "In a meeting",
       },
     },
+    "switch.main_breaker": {
+      entity_id: "switch.main_breaker",
+      state: "on",
+      attributes: {
+        icon: "mdi:electric-switch",
+        friendly_name: "Main breaker",
+      },
+    },
     "sensor.standing_desk_height": {
       entity_id: "sensor.standing_desk_height",
       state: "72",
@@ -581,4 +601,5 @@ export const demoEntitiesSections: DemoConfig["entities"] = (localize) =>
         supported_features: 11,
       },
     },
-  });
+  }),
+];

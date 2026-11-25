@@ -10523,6 +10523,11 @@
           "entities": {
             "never_triggered": "Never triggered"
           },
+          "din-rail-switch": {
+            "power": "Power",
+            "current": "Current",
+            "voltage": "Voltage"
+          },
           "todo-list": {
             "unchecked_items": "Active",
             "no_unchecked_items": "You have no to-do items!",
@@ -12075,6 +12080,23 @@
               "description": "This card gives you a quick overview of a sensor's state with an optional graph to visualize change over time.",
               "limit_min": "Minimum value",
               "limit_max": "Maximum value"
+            },
+            "din-rail-panel": {
+              "name": "DIN rail panel",
+              "description": "This card shows switches as the breakers of a distribution board, with their power, current, and voltage.",
+              "columns": "Modules per rail",
+              "modules": "Modules",
+              "modules_helper": "A panel holds up to {rails} rails of {columns} modules."
+            },
+            "din-rail-switch": {
+              "name": "DIN rail switch",
+              "description": "This card shows a switch as a DIN rail breaker with its power, current, and voltage.",
+              "switch_entity": "Switch",
+              "power_entity": "Power sensor (W)",
+              "current_entity": "Current sensor (A)",
+              "voltage_entity": "Voltage sensor (V)",
+              "lcd_displays": "Retro LCD displays",
+              "push_button": "Push button instead of lever"
             },
             "timer-list": {
               "name": "Timer list",

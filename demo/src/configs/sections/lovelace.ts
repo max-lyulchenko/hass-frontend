@@ -1,5 +1,9 @@
 import { isFrontpageEmbed } from "../../util/is_frontpage";
 import type { DemoConfig } from "../types";
+import {
+  demoDinRailPanelCard,
+  demoDinRailPanelDashboardCard,
+} from "./din-rail-panel";
 
 export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
   title: "Home Assistant Demo",
@@ -171,6 +175,23 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
               entity: "sensor.eletric_meter_voltage",
               name: "Voltage",
               color: "deep-orange",
+            },
+            {
+              type: "din-rail-switch",
+              entity: "switch.main_breaker",
+              push_button: true,
+              power_entity: "sensor.electric_meter_power",
+              current_entity: "sensor.electric_meter_current",
+              voltage_entity: "sensor.eletric_meter_voltage",
+            },
+            {
+              type: "din-rail-switch",
+              entity: "switch.main_breaker",
+              push_button: true,
+              power_entity: "sensor.electric_meter_power",
+              current_entity: "sensor.electric_meter_current",
+              voltage_entity: "sensor.eletric_meter_voltage",
+              lcd_displays: true,
             },
             {
               type: "tile",
@@ -359,7 +380,19 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
             },
           ],
         },
+        {
+          type: "grid",
+          column_span: 4,
+          cards: [demoDinRailPanelDashboardCard],
+        },
       ],
+    },
+    {
+      type: "panel",
+      title: "Distribution board",
+      path: "distribution-board",
+      icon: "mdi:electric-switch",
+      cards: [demoDinRailPanelCard],
     },
   ],
 });
