@@ -61,7 +61,7 @@ export const demoDinRailPanelDashboardCard: DinRailPanelCardConfig = {
   type: "din-rail-panel",
   title: "Distribution board",
   columns: 12,
-  push_button: true,
+  switch_style: "button",
   modules: CIRCUITS.slice(0, 12).map(([id]) => ({
     entity: `switch.circuit_${id}`,
     power_entity: "sensor.electric_meter_power",
@@ -74,7 +74,7 @@ export const demoDinRailPanelCard: DinRailPanelCardConfig = {
   type: "din-rail-panel",
   title: "Distribution board",
   columns: 12,
-  push_button: true,
+  switch_style: "button",
   modules: CIRCUITS.map(([id]) => ({
     entity: `switch.circuit_${id}`,
     power_entity: `sensor.circuit_${id}_power`,

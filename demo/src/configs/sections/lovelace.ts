@@ -179,7 +179,7 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
             {
               type: "din-rail-switch",
               entity: "switch.main_breaker",
-              push_button: true,
+              switch_style: "button",
               power_entity: "sensor.electric_meter_power",
               current_entity: "sensor.electric_meter_current",
               voltage_entity: "sensor.eletric_meter_voltage",
@@ -187,7 +187,7 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
             {
               type: "din-rail-switch",
               entity: "switch.main_breaker",
-              push_button: true,
+              switch_style: "button",
               power_entity: "sensor.electric_meter_power",
               current_entity: "sensor.electric_meter_current",
               voltage_entity: "sensor.eletric_meter_voltage",

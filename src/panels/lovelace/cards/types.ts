@@ -692,6 +692,13 @@ export interface TodoListCardConfig extends LovelaceCardConfig {
   };
 }
 
+/**
+ * The switch of a DIN rail module: "din" is a vertical lever like regular DIN
+ * rail equipment (up is on, down is off), "button" is a horizontal stand-by
+ * push button half as high.
+ */
+export type DinRailSwitchStyle = "din" | "button";
+
 export interface DinRailSwitchCardConfig extends LovelaceCardConfig {
   entity: string;
   name?: string | EntityNameItem | EntityNameItem[];
@@ -699,16 +706,16 @@ export interface DinRailSwitchCardConfig extends LovelaceCardConfig {
   current_entity?: string;
   voltage_entity?: string;
   lcd_displays?: boolean;
-  /** Show a push button, like a smart breaker, instead of a lever. */
-  push_button?: boolean;
+  /** Decimals on the LCD displays, 0 (the default) to 2. */
+  precision?: number;
+  /** The switch of the module, "din" (the default) or "button". */
+  switch_style?: DinRailSwitchStyle;
   theme?: string;
 }
 
 export interface DinRailPanelModuleConfig {
   entity: string;
   name?: string;
-  /** Show a push button, like a smart breaker, instead of a lever. */
-  push_button?: boolean;
   power_entity?: string;
   current_entity?: string;
   voltage_entity?: string;
@@ -718,8 +725,10 @@ export interface DinRailPanelCardConfig extends LovelaceCardConfig {
   title?: string;
   /** Modules per rail, 1 to 12. */
   columns?: number;
-  /** Push buttons instead of levers, for modules that do not set it. */
-  push_button?: boolean;
+  /** Decimals on the LCD displays, 0 (the default) to 2. */
+  precision?: number;
+  /** The switch of all modules, "din" (the default) or "button". */
+  switch_style?: DinRailSwitchStyle;
   /** At most 3 rails of `columns` modules. */
   modules: DinRailPanelModuleConfig[];
   theme?: string;

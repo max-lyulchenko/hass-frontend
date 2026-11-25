@@ -15,13 +15,17 @@ import { forwardHaptic } from "../../../data/haptics";
 import type { HomeAssistant } from "../../../types";
 import { toggleEntity } from "../common/entity/toggle-entity";
 import { findEntities } from "../common/find-entities";
-import { formatLcdValue } from "../common/format-lcd-value";
+import { formatLcdValue, lcdPrecision } from "../common/format-lcd-value";
 import { hasConfigChanged } from "../common/has-changed";
 import "../components/hui-din-rail-button";
 import "../components/hui-seven-segment";
 import { createEntityNotFoundWarning } from "../components/hui-warning";
-import type { LovelaceCard, LovelaceGridOptions } from "../types";
-import type { DinRailSwitchCardConfig } from "./types";
+import type {
+  LovelaceCard,
+  LovelaceCardEditor,
+  LovelaceGridOptions,
+} from "../types";
+import type { DinRailSwitchCardConfig, DinRailSwitchStyle } from "./types";
 
 export const DIN_RAIL_SWITCH_DOMAINS = ["switch", "input_boolean", "light"];
 
@@ -67,10 +71,9 @@ export const findDeviceReadings = (
 
 @customElement("hui-din-rail-switch-card")
 export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
-  public static async getConfigForm() {
-    return (
-      await import("../editor/config-elements/hui-din-rail-switch-card-editor")
-    ).default;
+  public static async getConfigElement(): Promise<LovelaceCardEditor> {
+    await import("../editor/config-elements/hui-din-rail-switch-card-editor");
+    return document.createElement("hui-din-rail-switch-card-editor");
   }
 
   public static getStubConfig(
@@ -96,13 +99,17 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
 
   @state() private _config?: DinRailSwitchCardConfig;
 
-  // The LCD version needs 5 rows with a lever and 3 with a push button, see
-  // the sizes in the styles
+  private get _switchStyle(): DinRailSwitchStyle {
+    return this._config?.switch_style === "button" ? "button" : "din";
+  }
+
+  // The LCD version needs 4 rows with a DIN switch and 3 with a button,
+  // see the sizes in the styles
   private get _rows(): number {
     if (!this._config?.lcd_displays) {
       return 3;
     }
-    return this._config.push_button ? 3 : 5;
+    return this._switchStyle === "button" ? 3 : 4;
   }
 
   public getCardSize(): number {
@@ -198,12 +205,12 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
           module: true,
           on: isOn,
           unavailable,
-          compact: !!this._config.push_button,
+          button: this._switchStyle === "button",
         })}
         style=${styleMap({ "--active-color": stateColorCss(stateObj) })}
       >
         ${
-          this._config.push_button
+          this._switchStyle === "button"
             ? html`
                 <hui-din-rail-button
                   .on=${isOn}
@@ -278,7 +285,8 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     const lcd = formatLcdValue(
       stateObj ? Number(stateObj.state) : NaN,
       stateObj?.attributes.unit_of_measurement,
-      LCD_DIGITS
+      LCD_DIGITS,
+      lcdPrecision(this._config!.precision)
     );
     const valueText = stateObj
       ? this.hass!.formatEntityState(stateObj)
@@ -396,36 +404,43 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       min-height: 0;
     }
 
-    /* The breaker module, drawn like a single pole DIN rail switch */
+    /*
+     * The breaker module, drawn like a single pole DIN rail switch.
+     * A button module is 8 + button 18 + 8 + border 2 = 36px high. A DIN
+     * module is twice that: 4 + mark 8 + 2 + slot 42 + 2 + mark 8 + 4
+     * + border 2 = 72px.
+     */
     .module {
       --module-color: var(--ha-color-fill-neutral-quiet-resting, #e8e8e8);
       --active-color: var(--state-active-color);
       flex: none;
       width: 56px;
-      align-self: stretch;
-      min-height: 112px;
+      align-self: center;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: var(--ha-space-1);
-      padding: var(--ha-space-2) 0;
+      gap: 2px;
+      padding: 4px 0;
       border-radius: var(--ha-border-radius-md, 8px);
       background: var(--module-color);
       border: 1px solid var(--divider-color);
       position: relative;
     }
+    .module.button {
+      padding: 8px 0;
+    }
     .mark {
-      font-size: var(--ha-font-size-xs, 10px);
+      font-size: 8px;
       font-weight: var(--ha-font-weight-bold);
       color: var(--secondary-text-color);
-      line-height: 1;
+      line-height: 8px;
     }
     .slot {
       position: relative;
-      width: 28px;
-      height: 56px;
+      width: 22px;
+      height: 42px;
       border-radius: var(--ha-border-radius-sm, 4px);
       background: var(--primary-text-color);
       opacity: 0.85;
@@ -435,24 +450,24 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     }
     .lever {
       position: absolute;
-      left: 3px;
-      right: 3px;
-      height: 28px;
-      top: calc(100% - 31px);
+      left: 2px;
+      right: 2px;
+      height: 20px;
+      top: calc(100% - 22px);
       border-radius: 3px;
       background: var(--card-background-color, #fff);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
       transition: top 150ms ease-in-out;
     }
     .module.on .lever {
-      top: 3px;
+      top: 2px;
     }
     .flag {
       position: absolute;
-      bottom: var(--ha-space-2);
-      right: var(--ha-space-2);
-      width: 8px;
-      height: 8px;
+      bottom: 4px;
+      right: 4px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--state-inactive-color, var(--disabled-color));
     }
@@ -501,11 +516,11 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
 
     /*
      * Retro LCD displays, like the panel meters of the 80s and 90s.
-     * Sized to fit 5 rows (312px) and a card of 6 columns, which can be as
+     * Sized to fit a card of 6 columns, which can be as
      * narrow as 156px: padding 20 + header 18 + gap 8 + displays 3 x 25
-     * + gaps 8 + gap 8 + switch 112 = 249px high.
-     * With a push button, the switch is 8 + 18 + 8 + border 2 = 36px high,
-     * so the card is 173px high and fits 3 rows (184px).
+     * + gaps 8 + gap 8 + switch.
+     * With a DIN switch (72px) the card is 209px high and fits 4 rows
+     * (248px). With a button (36px) it is 173px and fits 3 rows (184px).
      */
     ha-card.lcd-mode {
       padding: 10px;
@@ -579,18 +594,6 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       display: flex;
       align-items: center;
       justify-content: center;
-    }
-    .switch-row .module {
-      align-self: auto;
-      height: 112px;
-    }
-    /* With a push button, the module is only as high as the button */
-    .module.compact,
-    .switch-row .module.compact {
-      align-self: center;
-      height: auto;
-      min-height: 0;
-      padding: var(--ha-space-2) 0;
     }
   `;
 }

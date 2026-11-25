@@ -15,7 +15,7 @@ import { forwardHaptic } from "../../../data/haptics";
 import type { HomeAssistant } from "../../../types";
 import { toggleEntity } from "../common/entity/toggle-entity";
 import { findEntities } from "../common/find-entities";
-import { formatLcdValue } from "../common/format-lcd-value";
+import { formatLcdValue, lcdPrecision } from "../common/format-lcd-value";
 import { hasConfigChanged } from "../common/has-changed";
 import "../components/hui-din-rail-button";
 import "../components/hui-seven-segment";
@@ -203,8 +203,8 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       ? (this.hass!.states[module.entity] as HassEntity | undefined)
       : undefined;
     const isOn = stateObj ? !STATES_OFF.includes(stateObj.state) : false;
-    // A module can override the push button setting of the panel
-    const pushButton = module.push_button ?? this._config!.push_button ?? false;
+    // All modules of a panel have the same switch
+    const button = this._config!.switch_style === "button";
     const unavailable = !stateObj || stateObj.state === UNAVAILABLE;
     const name = stateObj
       ? this.hass!.formatEntityName(stateObj, module.name)
@@ -214,7 +214,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       : this.hass!.localize("state.default.unavailable");
 
     return html`
-      <div class=${classMap({ cell: true, compact: pushButton })}>
+      <div class="cell">
         <div
           class=${classMap({ module: true, on: isOn, unavailable })}
           style=${styleMap({
@@ -240,7 +240,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
               : nothing
           }
           ${
-            pushButton
+            button
               ? html`
                   <div class="breaker">
                     <hui-din-rail-button
@@ -296,7 +296,8 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     const lcd = formatLcdValue(
       stateObj ? Number(stateObj.state) : NaN,
       stateObj?.attributes.unit_of_measurement,
-      LCD_DIGITS
+      LCD_DIGITS,
+      lcdPrecision(this._config!.precision)
     );
     const valueText = stateObj
       ? this.hass!.formatEntityState(stateObj)
@@ -346,7 +347,9 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
    * growing at 120px wide.
    *
    * Module height: padding 4 + label 11 + gap 4 + displays 3 x 21 + gaps 2 x 2
-   * + gap 4 + breaker 62 + padding 6 = 158 units.
+   * + gap 4 + switch + padding 6. The button switch is 20 units
+   * high, the DIN switch twice that: mark 6 + gap 1 + slot 26 + gap 1
+   * + mark 6 = 40 units.
    * Display width: digits 40 + gap 3 + unit 19 + padding 6 + bezel 4 = 72 of
    * the 84 units inside the module.
    */
@@ -505,49 +508,39 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: calc(2 * var(--u));
-    }
-    /*
-     * A module with a push button is only as high as its content, so it ends
-     * above the lever modules of its rail
-     */
-    .cell.compact {
-      align-self: start;
-    }
-    .compact .module {
-      height: auto;
+      gap: var(--u);
     }
     hui-din-rail-button {
       --button-height: calc(20 * var(--u));
       --button-width: calc(64 * var(--u));
     }
     .mark {
-      font-size: calc(7 * var(--u));
+      font-size: calc(6 * var(--u));
       font-weight: var(--ha-font-weight-bold);
       color: var(--secondary-text-color);
-      line-height: 1;
+      line-height: calc(6 * var(--u));
     }
     .slot {
       position: relative;
-      width: calc(22 * var(--u));
-      height: calc(44 * var(--u));
-      border-radius: calc(3 * var(--u));
+      width: calc(14 * var(--u));
+      height: calc(26 * var(--u));
+      border-radius: calc(2 * var(--u));
       background: var(--primary-text-color);
       opacity: 0.85;
     }
     .lever {
       position: absolute;
-      left: calc(2.5 * var(--u));
-      right: calc(2.5 * var(--u));
-      height: calc(20 * var(--u));
-      top: calc(100% - 22.5 * var(--u));
-      border-radius: calc(2 * var(--u));
+      left: calc(1.5 * var(--u));
+      right: calc(1.5 * var(--u));
+      height: calc(12 * var(--u));
+      top: calc(100% - 13.5 * var(--u));
+      border-radius: calc(1.5 * var(--u));
       background: var(--card-background-color, #fff);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
       transition: top 150ms ease-in-out;
     }
     .module.on .lever {
-      top: calc(2.5 * var(--u));
+      top: calc(1.5 * var(--u));
     }
     .flag {
       position: absolute;

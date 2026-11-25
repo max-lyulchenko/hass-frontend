@@ -12096,7 +12096,12 @@
               "current_entity": "Current sensor (A)",
               "voltage_entity": "Voltage sensor (V)",
               "lcd_displays": "Retro LCD displays",
-              "push_button": "Push button instead of lever"
+              "switch_style": "Switch",
+              "switch_style_options": {
+                "din": "DIN (vertical lever)",
+                "button": "Button (stand-by)"
+              },
+              "precision": "Decimals on the LCD displays"
             },
             "timer-list": {
               "name": "Timer list",

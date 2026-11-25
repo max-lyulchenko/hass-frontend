@@ -5,7 +5,6 @@ import {
   array,
   assert,
   assign,
-  boolean,
   number,
   object,
   optional,
@@ -27,11 +26,15 @@ import { DIN_RAIL_SWITCH_DOMAINS } from "../../cards/hui-din-rail-switch-card";
 import type { DinRailPanelCardConfig } from "../../cards/types";
 import type { LovelaceCardEditor } from "../../types";
 import { baseLovelaceCardConfig } from "../structs/base-card-struct";
+import {
+  precisionSelector,
+  switchStyleSelector,
+  switchStyleStruct,
+} from "./hui-din-rail-switch-card-editor";
 
 const moduleStruct = object({
   entity: optional(string()),
   name: optional(string()),
-  push_button: optional(boolean()),
   power_entity: optional(string()),
   current_entity: optional(string()),
   voltage_entity: optional(string()),
@@ -42,7 +45,8 @@ const cardConfigStruct = assign(
   object({
     title: optional(string()),
     columns: optional(number()),
-    push_button: optional(boolean()),
+    switch_style: optional(switchStyleStruct),
+    precision: optional(number()),
     modules: array(moduleStruct),
     theme: optional(string()),
   })
@@ -102,12 +106,6 @@ export class HuiDinRailPanelCardEditor
                   label: localize("ui.panel.lovelace.editor.card.generic.name"),
                   selector: { text: {} },
                 },
-                push_button: {
-                  label: localize(
-                    "ui.panel.lovelace.editor.card.din-rail-switch.push_button"
-                  ),
-                  selector: { boolean: {} },
-                },
                 power_entity: {
                   label: localize(
                     "ui.panel.lovelace.editor.card.din-rail-switch.power_entity"
@@ -130,7 +128,8 @@ export class HuiDinRailPanelCardEditor
             },
           },
         },
-        { name: "push_button", selector: { boolean: {} } },
+        { name: "switch_style", selector: switchStyleSelector(localize) },
+        { name: "precision", selector: precisionSelector },
         { name: "theme", selector: { theme: {} } },
       ] as const satisfies HaFormSchema[]
   );
@@ -141,6 +140,7 @@ export class HuiDinRailPanelCardEditor
     }
     const data = {
       columns: DIN_RAIL_PANEL_MAX_COLUMNS,
+      switch_style: "din",
       ...this._config,
     };
     return html`
@@ -165,9 +165,10 @@ export class HuiDinRailPanelCardEditor
     schema: SchemaUnion<ReturnType<typeof this._schema>>
   ) => {
     switch (schema.name) {
-      case "push_button":
+      case "switch_style":
+      case "precision":
         return this.hass!.localize(
-          "ui.panel.lovelace.editor.card.din-rail-switch.push_button"
+          `ui.panel.lovelace.editor.card.din-rail-switch.${schema.name}`
         );
       case "columns":
       case "modules":

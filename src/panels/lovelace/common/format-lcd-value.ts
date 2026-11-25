@@ -27,17 +27,42 @@ export interface LcdValue {
   unit: string;
 }
 
+export const LCD_MAX_PRECISION = 2;
+
+/** Decimals of an LCD display: 0 (the default) to 2. */
+export const lcdPrecision = (precision: number | undefined): number =>
+  Math.min(LCD_MAX_PRECISION, Math.max(0, Math.round(precision ?? 0)));
+
 const countDigits = (text: string) => text.replace(/[^0-9]/g, "").length;
 
-const fitDigits = (value: number, maxDigits: number): string | undefined => {
-  const integerDigits = Math.max(1, Math.floor(Math.log10(value)) + 1);
-  const decimals = Math.max(0, maxDigits - integerDigits);
-  let text = value.toFixed(decimals);
-  // Rounding can carry into a new integer digit, like 9.9997 to 10.000
-  if (countDigits(text) > maxDigits && decimals > 0) {
-    text = value.toFixed(decimals - 1);
+// A value with a single integer digit, like 3.07 A, shows this many decimals
+// whatever the precision, as one digit alone says too little
+const SINGLE_DIGIT_DECIMALS = 2;
+
+const fitDigits = (
+  value: number,
+  maxDigits: number,
+  precision: number
+): string | undefined => {
+  let integerDigits =
+    value < 1 ? 1 : Math.max(1, Math.floor(Math.log10(value)) + 1);
+  // Rounding can carry into a new integer digit, like 9.996 to 10.00, so
+  // check the rounded text and count one more digit when it does
+  for (;;) {
+    if (integerDigits > maxDigits) {
+      return undefined;
+    }
+    const wanted =
+      integerDigits === 1
+        ? Math.max(precision, SINGLE_DIGIT_DECIMALS)
+        : precision;
+    const decimals = Math.min(wanted, maxDigits - integerDigits);
+    const text = value.toFixed(decimals);
+    if (Number(text) < 10 ** integerDigits) {
+      return countDigits(text) <= maxDigits ? text : undefined;
+    }
+    integerDigits++;
   }
-  return countDigits(text) <= maxDigits ? text : undefined;
 };
 
 const splitUnit = (unit: string): { base: string; factor: number } | null => {
@@ -52,16 +77,21 @@ const splitUnit = (unit: string): { base: string; factor: number } | null => {
   return null;
 };
 
+const BASE_INDEX = PREFIXES.findIndex(({ factor }) => factor === 1);
+
 /**
- * Fit a measurement on a display of `size` digits, like a panel meter: switch
- * to the metric prefix (k, M, m, ...) that keeps the value within the digits,
- * and fill the remaining digits with decimals. A minus sign takes a digit.
- * Returns dashes when the value cannot be shown.
+ * Fit a measurement on a display of `size` digits, like a panel meter. The
+ * value is shown in its base unit (W, A, V, ...) with `precision` decimals.
+ * It switches to a larger prefix (k, M, ...) when it does not fit the digits,
+ * and to a smaller one (m, µ) when it is below 1. Fewer decimals are shown
+ * when they do not fit. A minus sign takes a digit. Returns dashes when the
+ * value cannot be shown.
  */
 export const formatLcdValue = (
   value: number,
   unit: string | undefined,
-  size = 4
+  size = 4,
+  precision = 0
 ): LcdValue => {
   const dashes = { digits: "-".repeat(size), unit: unit ?? "" };
   if (!Number.isFinite(value)) {
@@ -74,7 +104,7 @@ export const formatLcdValue = (
 
   if (!split) {
     // A unit without metric prefixes, such as %: show it as it is
-    const text = fitDigits(Math.abs(value), maxDigits);
+    const text = fitDigits(Math.abs(value), maxDigits, precision);
     return text === undefined
       ? dashes
       : { digits: `${sign}${text}`, unit: unit ?? "" };
@@ -82,18 +112,19 @@ export const formatLcdValue = (
 
   const base = Math.abs(value) * split.factor;
   if (base === 0) {
-    return { digits: (0).toFixed(maxDigits - 1), unit: split.base };
+    return { digits: fitDigits(0, maxDigits, precision)!, unit: split.base };
   }
 
-  // Use the largest prefix that keeps an integer digit, like 1.234 kW rather
-  // than 1234 W, and fall back to a larger one if the value does not fit
-  let index = PREFIXES.findIndex(({ factor }) => base >= factor);
-  if (index === -1) {
-    index = PREFIXES.length - 1;
+  // Start at the base unit, or at the first smaller prefix that gives an
+  // integer digit for values below 1, and move to larger prefixes until the
+  // value fits
+  let index = BASE_INDEX;
+  while (base < PREFIXES[index].factor && index < PREFIXES.length - 1) {
+    index++;
   }
   for (; index >= 0; index--) {
     const { prefix, factor } = PREFIXES[index];
-    const text = fitDigits(base / factor, maxDigits);
+    const text = fitDigits(base / factor, maxDigits, precision);
     if (text !== undefined) {
       return { digits: `${sign}${text}`, unit: `${prefix}${split.base}` };
     }
