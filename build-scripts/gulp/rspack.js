@@ -181,14 +181,8 @@ gulp.task("rspack-prod-app-modern", () =>
   )
 );
 
-gulp.task("rspack-dev-server-demo", () => {
-  // Like the app, rebuild the translations when they change, or new strings
-  // show no text until the dev server restarts
-  gulp.watch(
-    path.join(paths.translations_src, "*.json"),
-    gulp.series("build-translations", "copy-translations-demo")
-  );
-  return runDevServer({
+gulp.task("rspack-dev-server-demo", () =>
+  runDevServer({
     compiler: rspack(
       createDemoConfig({ isProdBuild: false, latestBuild: true })
     ),
@@ -196,8 +190,8 @@ gulp.task("rspack-dev-server-demo", () => {
     port: 8090,
     open: false,
     suite: "demo",
-  });
-});
+  })
+);
 
 gulp.task("rspack-prod-demo", () =>
   prodBuild(

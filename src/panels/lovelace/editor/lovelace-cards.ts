@@ -141,13 +141,6 @@ export const coreCards: Card[] = [
     type: "timer-list",
   },
   {
-    type: "din-rail-switch",
-    showElement: true,
-  },
-  {
-    type: "din-rail-panel",
-  },
-  {
     type: "heading",
     showElement: true,
   },

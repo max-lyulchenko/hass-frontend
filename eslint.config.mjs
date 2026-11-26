@@ -296,19 +296,6 @@ export default tseslint.config(
     },
   },
   {
-    // Node scripts that build the custom cards, like build-scripts/
-    files: ["custom-cards/*/*.cjs"],
-    languageOptions: {
-      globals: globals.node,
-    },
-    rules: {
-      "no-console": "off",
-      "@typescript-eslint/no-require-imports": "off",
-      "@typescript-eslint/naming-convention": "off",
-      "import-x/no-dynamic-require": "off",
-    },
-  },
-  {
     files: [".github/scripts/*.mts"],
     languageOptions: {
       globals: globals.node,

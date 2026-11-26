@@ -1,7 +1,7 @@
 import type { DeviceRegistryEntry } from "../../../../src/data/device/device_registry";
 import type { EntityInput } from "../../../../src/fake_data/entities/types";
 import { baseDevice } from "../../stubs/device_registry";
-import type { DinRailPanelCardConfig } from "../../../../src/panels/lovelace/cards/types";
+import type { LovelaceCardConfig } from "../../../../src/data/lovelace/config/card";
 
 // Circuits of a demo distribution board: name, state and power in W
 const CIRCUITS: [id: string, name: string, on: boolean, power: number][] = [
@@ -100,8 +100,8 @@ export const demoDinRailPanelEntities: EntityInput[] = CIRCUITS.flatMap(
 
 // The panel on the home dashboard: one rail of different switches, all
 // showing the readings of the electric meter
-export const demoDinRailPanelDashboardCard: DinRailPanelCardConfig = {
-  type: "din-rail-panel",
+export const demoDinRailPanelDashboardCard: LovelaceCardConfig = {
+  type: "custom:din-rail-panel-card",
   title: "Distribution board",
   columns: 12,
   switch_style: "button",
@@ -115,8 +115,8 @@ export const demoDinRailPanelDashboardCard: DinRailPanelCardConfig = {
   })),
 };
 
-export const demoDinRailPanelCard: DinRailPanelCardConfig = {
-  type: "din-rail-panel",
+export const demoDinRailPanelCard: LovelaceCardConfig = {
+  type: "custom:din-rail-panel-card",
   title: "Distribution board",
   columns: 12,
   switch_style: "button",

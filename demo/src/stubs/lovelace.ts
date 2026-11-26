@@ -38,7 +38,21 @@ export const mockLovelace = (
     Promise.resolve({ resource_mode: "storage" } as LovelaceInfo)
   );
   hass.mockWS("lovelace/config/save", () => Promise.resolve());
-  hass.mockWS("lovelace/resources", () => Promise.resolve([]));
+  // In development, the DIN rail cards of the din-rail-cards project, served
+  // by its `npm run dev`
+  hass.mockWS("lovelace/resources", () =>
+    Promise.resolve(
+      __DEV__
+        ? [
+            {
+              id: "din-rail-cards",
+              type: "module",
+              url: "http://localhost:5050/din-rail-cards.js",
+            },
+          ]
+        : []
+    )
+  );
   hass.mockWS("lovelace/dashboards/list", () =>
     dashboards.map((dashboard) => ({ ...dashboard }))
   );

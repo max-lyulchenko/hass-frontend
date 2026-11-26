@@ -177,7 +177,7 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
               color: "deep-orange",
             },
             {
-              type: "din-rail-switch",
+              type: "custom:din-rail-switch-card",
               entity: "switch.main_breaker",
               switch_style: "button",
               power_entity: "sensor.electric_meter_power",
@@ -185,7 +185,7 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
               voltage_entity: "sensor.eletric_meter_voltage",
             },
             {
-              type: "din-rail-switch",
+              type: "custom:din-rail-switch-card",
               entity: "switch.main_breaker",
               switch_style: "button",
               power_entity: "sensor.electric_meter_power",
