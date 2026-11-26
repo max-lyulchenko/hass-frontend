@@ -1,4 +1,6 @@
+import type { DeviceRegistryEntry } from "../../../../src/data/device/device_registry";
 import type { EntityInput } from "../../../../src/fake_data/entities/types";
+import { baseDevice } from "../../stubs/device_registry";
 import type { DinRailPanelCardConfig } from "../../../../src/panels/lovelace/cards/types";
 
 // Circuits of a demo distribution board: name, state and power in W
@@ -22,6 +24,20 @@ const CIRCUITS: [id: string, name: string, on: boolean, power: number][] = [
 ];
 
 const VOLTAGE = 231.4;
+
+// A device per circuit, so the more-info dialog of its entities finds it
+export const demoDinRailPanelDevices: DeviceRegistryEntry[] = CIRCUITS.map(
+  ([id, name]) => ({
+    ...baseDevice,
+    id: `demo_circuit_${id}`,
+    name,
+    manufacturer: "Demo",
+    model: "Circuit breaker",
+    config_entries: [],
+    primary_config_entry: null,
+    entry_type: null,
+  })
+);
 
 export const demoDinRailPanelEntities: EntityInput[] = CIRCUITS.flatMap(
   ([id, name, on, power]) => {
@@ -62,11 +78,13 @@ export const demoDinRailPanelDashboardCard: DinRailPanelCardConfig = {
   title: "Distribution board",
   columns: 12,
   switch_style: "button",
-  modules: CIRCUITS.slice(0, 12).map(([id]) => ({
+  modules: CIRCUITS.slice(0, 12).map(([id], i) => ({
     entity: `switch.circuit_${id}`,
     power_entity: "sensor.electric_meter_power",
     current_entity: "sensor.electric_meter_current",
     voltage_entity: "sensor.eletric_meter_voltage",
+    // Every fourth circuit is over its max current (3.44 A), to show the alarm
+    max_current: i % 4 === 3 ? 3 : 16,
   })),
 };
 

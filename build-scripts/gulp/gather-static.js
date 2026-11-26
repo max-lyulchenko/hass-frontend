@@ -118,6 +118,10 @@ gulp.task("copy-translations-app", async () => {
   copyTranslations(staticDir);
 });
 
+gulp.task("copy-translations-demo", async () => {
+  copyTranslations(paths.demo_output_static);
+});
+
 gulp.task("copy-translations-landing-page", async () => {
   const staticDir = paths.landingPage_output_static;
   copyTranslations(staticDir);

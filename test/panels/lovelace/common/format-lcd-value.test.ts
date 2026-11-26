@@ -1,5 +1,67 @@
 import { describe, expect, it } from "vitest";
-import { formatLcdValue } from "../../../../src/panels/lovelace/common/format-lcd-value";
+import {
+  currentAboveMax,
+  formatLcdValue,
+  toBaseUnit,
+  voltageLevel,
+} from "../../../../src/panels/lovelace/common/format-lcd-value";
+
+describe("toBaseUnit", () => {
+  it("converts prefixed units", () => {
+    expect(toBaseUnit(1.5, "kW")).toEqual({ value: 1500, unit: "W" });
+    expect(toBaseUnit(250, "mA")).toEqual({ value: 0.25, unit: "A" });
+    expect(toBaseUnit(230, "V")).toEqual({ value: 230, unit: "V" });
+  });
+
+  it("is undefined for other units and values", () => {
+    expect(toBaseUnit(50, "%")).toBeUndefined();
+    expect(toBaseUnit(NaN, "W")).toBeUndefined();
+    expect(toBaseUnit(5, undefined)).toBeUndefined();
+  });
+});
+
+describe("currentAboveMax", () => {
+  it("compares with the max in amperes", () => {
+    expect(currentAboveMax(16.1, "A", 16)).toBe(true);
+    expect(currentAboveMax(16, "A", 16)).toBe(false);
+    expect(currentAboveMax(-17, "A", 16)).toBe(true);
+    expect(currentAboveMax(500, "mA", 0.4)).toBe(true);
+    expect(currentAboveMax(300, "mA", 0.4)).toBe(false);
+  });
+
+  it("is false without a max or a current", () => {
+    expect(currentAboveMax(100, "A", undefined)).toBe(false);
+    expect(currentAboveMax(100, "W", 16)).toBe(false);
+    expect(currentAboveMax(NaN, "A", 16)).toBe(false);
+  });
+});
+
+describe("voltageLevel", () => {
+  it("uses 210 V and 250 V by default", () => {
+    expect(voltageLevel(230, "V")).toBeUndefined();
+    expect(voltageLevel(210, "V")).toBeUndefined();
+    expect(voltageLevel(250, "V")).toBeUndefined();
+    expect(voltageLevel(209.9, "V")).toBe("low");
+    expect(voltageLevel(250.1, "V")).toBe("high");
+  });
+
+  it("uses the configured limits", () => {
+    expect(voltageLevel(115, "V", 110, 125)).toBeUndefined();
+    expect(voltageLevel(105, "V", 110, 125)).toBe("low");
+    expect(voltageLevel(130, "V", 110, 125)).toBe("high");
+  });
+
+  it("converts prefixed units", () => {
+    expect(voltageLevel(0.26, "kV")).toBe("high");
+    expect(voltageLevel(230_000, "mV")).toBeUndefined();
+  });
+
+  it("ignores values that are not voltages", () => {
+    expect(voltageLevel(NaN, "V")).toBeUndefined();
+    expect(voltageLevel(500, "W")).toBeUndefined();
+    expect(voltageLevel(500, undefined)).toBeUndefined();
+  });
+});
 
 const lcd = (value: number, unit: string | undefined, precision = 0) =>
   formatLcdValue(value, unit, 4, precision);

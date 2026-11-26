@@ -5,6 +5,7 @@ import {
   array,
   assert,
   assign,
+  boolean,
   number,
   object,
   optional,
@@ -30,6 +31,9 @@ import {
   precisionSelector,
   switchStyleSelector,
   switchStyleStruct,
+  maxCurrentSelector,
+  VOLTAGE_LIMIT_DEFAULTS,
+  voltageLimitsSchema,
 } from "./hui-din-rail-switch-card-editor";
 
 const moduleStruct = object({
@@ -38,6 +42,7 @@ const moduleStruct = object({
   power_entity: optional(string()),
   current_entity: optional(string()),
   voltage_entity: optional(string()),
+  max_current: optional(number()),
 });
 
 const cardConfigStruct = assign(
@@ -47,6 +52,12 @@ const cardConfigStruct = assign(
     columns: optional(number()),
     switch_style: optional(switchStyleStruct),
     precision: optional(number()),
+    voltage_low: optional(number()),
+    voltage_high: optional(number()),
+    show_totals: optional(boolean()),
+    total_power_entity: optional(string()),
+    total_current_entity: optional(string()),
+    total_voltage_entity: optional(string()),
     modules: array(moduleStruct),
     theme: optional(string()),
   })
@@ -124,12 +135,23 @@ export class HuiDinRailPanelCardEditor
                   ),
                   selector: sensorSelector("voltage"),
                 },
+                max_current: {
+                  label: localize(
+                    "ui.panel.lovelace.editor.card.din-rail-switch.max_current"
+                  ),
+                  selector: maxCurrentSelector,
+                },
               },
             },
           },
         },
         { name: "switch_style", selector: switchStyleSelector(localize) },
         { name: "precision", selector: precisionSelector },
+        { name: "show_totals", selector: { boolean: {} } },
+        { name: "total_power_entity", selector: sensorSelector("power") },
+        { name: "total_current_entity", selector: sensorSelector("current") },
+        { name: "total_voltage_entity", selector: sensorSelector("voltage") },
+        voltageLimitsSchema,
         { name: "theme", selector: { theme: {} } },
       ] as const satisfies HaFormSchema[]
   );
@@ -141,6 +163,8 @@ export class HuiDinRailPanelCardEditor
     const data = {
       columns: DIN_RAIL_PANEL_MAX_COLUMNS,
       switch_style: "din",
+      show_totals: true,
+      ...VOLTAGE_LIMIT_DEFAULTS,
       ...this._config,
     };
     return html`
@@ -167,11 +191,17 @@ export class HuiDinRailPanelCardEditor
     switch (schema.name) {
       case "switch_style":
       case "precision":
+      case "voltage_low":
+      case "voltage_high":
         return this.hass!.localize(
           `ui.panel.lovelace.editor.card.din-rail-switch.${schema.name}`
         );
       case "columns":
       case "modules":
+      case "show_totals":
+      case "total_power_entity":
+      case "total_current_entity":
+      case "total_voltage_entity":
         return this.hass!.localize(
           `ui.panel.lovelace.editor.card.din-rail-panel.${schema.name}`
         );

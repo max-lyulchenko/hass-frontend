@@ -24,7 +24,11 @@ import type {
   DinRailSwitchCardConfig,
   DinRailSwitchStyle,
 } from "../../cards/types";
-import { LCD_MAX_PRECISION } from "../../common/format-lcd-value";
+import {
+  DEFAULT_VOLTAGE_HIGH,
+  DEFAULT_VOLTAGE_LOW,
+  LCD_MAX_PRECISION,
+} from "../../common/format-lcd-value";
 import type { LovelaceCardEditor } from "../../types";
 import { baseLovelaceCardConfig } from "../structs/base-card-struct";
 import { entityNameStruct } from "../structs/entity-name-struct";
@@ -50,6 +54,41 @@ export const precisionSelector = {
   number: { min: 0, max: LCD_MAX_PRECISION, step: 1, mode: "box" as const },
 };
 
+const voltageSelector = {
+  number: {
+    min: 0,
+    max: 1000,
+    step: 1,
+    mode: "box" as const,
+    unit_of_measurement: "V",
+  },
+};
+
+/** Voltage limits of the LCD backlight, shared with the panel editor. */
+export const voltageLimitsSchema = {
+  name: "",
+  type: "grid",
+  schema: [
+    { name: "voltage_low", selector: voltageSelector },
+    { name: "voltage_high", selector: voltageSelector },
+  ],
+} as const satisfies HaFormSchema;
+
+export const maxCurrentSelector = {
+  number: {
+    min: 0,
+    max: 1000,
+    step: 0.1,
+    mode: "box" as const,
+    unit_of_measurement: "A",
+  },
+};
+
+export const VOLTAGE_LIMIT_DEFAULTS = {
+  voltage_low: DEFAULT_VOLTAGE_LOW,
+  voltage_high: DEFAULT_VOLTAGE_HIGH,
+};
+
 const cardConfigStruct = assign(
   baseLovelaceCardConfig,
   object({
@@ -61,6 +100,9 @@ const cardConfigStruct = assign(
     lcd_displays: optional(boolean()),
     switch_style: optional(switchStyleStruct),
     precision: optional(number()),
+    max_current: optional(number()),
+    voltage_low: optional(number()),
+    voltage_high: optional(number()),
     theme: optional(string()),
   })
 );
@@ -102,8 +144,10 @@ export class HuiDinRailSwitchCardEditor
         { name: "power_entity", selector: sensorSelector("power") },
         { name: "current_entity", selector: sensorSelector("current") },
         { name: "voltage_entity", selector: sensorSelector("voltage") },
+        { name: "max_current", selector: maxCurrentSelector },
         { name: "lcd_displays", selector: { boolean: {} } },
         { name: "precision", selector: precisionSelector },
+        voltageLimitsSchema,
         { name: "theme", selector: { theme: {} } },
       ] as const satisfies HaFormSchema[]
   );
@@ -112,7 +156,11 @@ export class HuiDinRailSwitchCardEditor
     if (!this.hass || !this._config) {
       return nothing;
     }
-    const data = { switch_style: "din", ...this._config };
+    const data = {
+      switch_style: "din",
+      ...VOLTAGE_LIMIT_DEFAULTS,
+      ...this._config,
+    };
     return html`
       <ha-form
         .hass=${this.hass}
@@ -142,6 +190,9 @@ export class HuiDinRailSwitchCardEditor
       case "lcd_displays":
       case "switch_style":
       case "precision":
+      case "max_current":
+      case "voltage_low":
+      case "voltage_high":
         return this.hass!.localize(
           `ui.panel.lovelace.editor.card.din-rail-switch.${schema.name}`
         );

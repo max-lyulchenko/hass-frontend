@@ -15,7 +15,13 @@ import { forwardHaptic } from "../../../data/haptics";
 import type { HomeAssistant } from "../../../types";
 import { toggleEntity } from "../common/entity/toggle-entity";
 import { findEntities } from "../common/find-entities";
-import { formatLcdValue, lcdPrecision } from "../common/format-lcd-value";
+import {
+  currentAboveMax,
+  formatLcdValue,
+  lcdPrecision,
+  toBaseUnit,
+  voltageLevel,
+} from "../common/format-lcd-value";
 import { hasConfigChanged } from "../common/has-changed";
 import "../components/hui-din-rail-button";
 import "../components/hui-seven-segment";
@@ -29,11 +35,42 @@ import {
   LCD_DIGITS,
   READINGS,
   findDeviceReadings,
+  lcdBacklight,
 } from "./hui-din-rail-switch-card";
+import type { ReadingKey } from "./hui-din-rail-switch-card";
 import type { DinRailPanelCardConfig, DinRailPanelModuleConfig } from "./types";
 
 export const DIN_RAIL_PANEL_MAX_COLUMNS = 12;
 export const DIN_RAIL_PANEL_MAX_RAILS = 3;
+
+// The meter of the board. Each display aggregates the readings of the
+// modules, unless the card sets an entity for it (`override`).
+const TOTALS = [
+  {
+    key: "power_entity",
+    override: "total_power_entity",
+    unit: "W",
+    average: false,
+    label: "total_power",
+    entityLabel: "total_power",
+  },
+  {
+    key: "current_entity",
+    override: "total_current_entity",
+    unit: "A",
+    average: false,
+    label: "total_current",
+    entityLabel: "total_current",
+  },
+  {
+    key: "voltage_entity",
+    override: "total_voltage_entity",
+    unit: "V",
+    average: true,
+    label: "average_voltage",
+    entityLabel: "voltage",
+  },
+] as const;
 
 const STUB_MODULES = 4;
 
@@ -143,7 +180,12 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     if (!oldHass || !this.hass) {
       return changedProps.has("hass");
     }
-    return this._entityIds(this._config.modules).some(
+    return [
+      ...this._entityIds(this._config.modules),
+      ...TOTALS.map(({ override }) => this._config![override]).filter(
+        (id): id is string => Boolean(id)
+      ),
+    ].some(
       (entityId) =>
         oldHass.states[entityId] !== this.hass!.states[entityId] ||
         oldHass.entities[entityId] !== this.hass!.entities[entityId]
@@ -179,6 +221,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     return html`
       <ha-card .header=${this._config.title}>
         <div class="enclosure" style=${styleMap({ "--columns": columns })}>
+          ${this._config.show_totals !== false ? this._renderTotals() : nothing}
           ${rails.map(
             (rail) => html`
               <div class="rail">
@@ -193,6 +236,141 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
         </div>
       </ha-card>
     `;
+  }
+
+  /**
+   * Sum of the readings of `key` in `unit` (W, A, V), and how many sensors
+   * gave one. A sensor shared by several modules counts once, as it measures
+   * them together.
+   */
+  private _aggregate(key: ReadingKey, unit: string) {
+    const entityIds = new Set(
+      this._config!.modules.map((module) => module[key]).filter(Boolean)
+    );
+    let sum = 0;
+    let count = 0;
+    for (const entityId of entityIds) {
+      const stateObj = this.hass!.states[entityId!];
+      const reading = stateObj
+        ? toBaseUnit(
+            Number(stateObj.state),
+            stateObj.attributes.unit_of_measurement
+          )
+        : undefined;
+      if (reading?.unit === unit) {
+        sum += reading.value;
+        count++;
+      }
+    }
+    return { sum, count, used: entityIds.size > 0 };
+  }
+
+  /**
+   * The value of a total display: the reading of its own entity when one is
+   * set (a main meter, say), else the aggregate of the modules. Undefined
+   * when neither is there, which hides the display.
+   */
+  private _total(
+    total: (typeof TOTALS)[number]
+  ): { value: number; entityId?: string } | undefined {
+    const entityId = this._config![total.override];
+    if (entityId) {
+      const stateObj = this.hass!.states[entityId];
+      const reading = stateObj
+        ? toBaseUnit(
+            Number(stateObj.state),
+            stateObj.attributes.unit_of_measurement
+          )
+        : undefined;
+      return {
+        value: reading?.unit === total.unit ? reading.value : NaN,
+        entityId,
+      };
+    }
+    const { sum, count, used } = this._aggregate(total.key, total.unit);
+    if (!used) {
+      return undefined;
+    }
+    if (!count) {
+      return { value: NaN };
+    }
+    return { value: total.average ? sum / count : sum };
+  }
+
+  private _renderTotals() {
+    const totals = TOTALS.map((total) => ({
+      total,
+      shown: this._total(total),
+    }));
+    if (totals.every(({ shown }) => !shown)) {
+      return nothing;
+    }
+    return html`
+      <div class="totals lcds">
+        ${totals.map(({ total, shown }) =>
+          shown
+            ? this._renderTotal(total, shown.value, shown.entityId)
+            : nothing
+        )}
+      </div>
+    `;
+  }
+
+  private _renderTotal(
+    total: (typeof TOTALS)[number],
+    value: number,
+    entityId?: string
+  ) {
+    const lcd = formatLcdValue(
+      value,
+      total.unit,
+      LCD_DIGITS,
+      lcdPrecision(this._config!.precision)
+    );
+    // Its own entity shows one reading, not an average
+    const labelText = this.hass!.localize(
+      `ui.panel.lovelace.cards.din-rail-panel.${
+        entityId ? total.entityLabel : total.label
+      }`
+    );
+    const level =
+      total.unit === "V"
+        ? voltageLevel(
+            value,
+            "V",
+            this._config!.voltage_low,
+            this._config!.voltage_high
+          )
+        : undefined;
+    const display = html`
+      <span class=${classMap({ lcd: true, [level ?? ""]: !!level })}>
+        <span class="lcd-label">${labelText}</span>
+        <hui-seven-segment
+          class="lcd-digits"
+          .value=${lcd.digits}
+          .digits=${LCD_DIGITS}
+        ></hui-seven-segment>
+        <span class="lcd-unit">${lcd.unit}</span>
+      </span>
+    `;
+    const ariaLabel = `${labelText}: ${lcd.digits} ${lcd.unit}`;
+    return entityId
+      ? html`
+          <button
+            class="lcd-bezel"
+            data-entity-id=${entityId}
+            @click=${this._showMoreInfo}
+            aria-label=${ariaLabel}
+            title=${ariaLabel}
+          >
+            ${display}
+          </button>
+        `
+      : html`
+          <div class="lcd-bezel" role="img" aria-label=${ariaLabel}>
+            ${display}
+          </div>
+        `;
   }
 
   private _renderModule(
@@ -233,8 +411,15 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
           ${
             readings.length
               ? html`
-                  <div class="lcds">
-                    ${readings.map(({ key }) => this._renderLcd(module[key]))}
+                  <div class="lcds ${this._voltageLevel(module) ?? ""}">
+                    ${readings.map(({ key }) =>
+                      this._renderLcd(
+                        module[key],
+                        key === "current_entity"
+                          ? module.max_current
+                          : undefined
+                      )
+                    )}
                   </div>
                 `
               : nothing
@@ -277,7 +462,24 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _renderLcd(entityId: string | undefined) {
+  // The backlight of a module's displays: gray below the low voltage, red
+  // above the high one
+  private _voltageLevel(module: DinRailPanelModuleConfig) {
+    const stateObj = module.voltage_entity
+      ? this.hass!.states[module.voltage_entity]
+      : undefined;
+    return stateObj
+      ? voltageLevel(
+          Number(stateObj.state),
+          stateObj.attributes.unit_of_measurement,
+          this._config!.voltage_low,
+          this._config!.voltage_high
+        )
+      : undefined;
+  }
+
+  /** `maxCurrent`: the display turns red above it (the current display). */
+  private _renderLcd(entityId: string | undefined, maxCurrent?: number) {
     if (!entityId) {
       // An unused display stays dark, so the modules of a rail line up
       return html`
@@ -313,7 +515,18 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
         aria-label=${`${label}: ${valueText}`}
         title=${`${label}: ${valueText}`}
       >
-        <span class="lcd">
+        <span
+          class=${classMap({
+            lcd: true,
+            alarm:
+              !!stateObj &&
+              currentAboveMax(
+                Number(stateObj.state),
+                stateObj.attributes.unit_of_measurement,
+                maxCurrent
+              ),
+          })}
+        >
           <hui-seven-segment
             class="lcd-digits"
             .value=${lcd.digits}
@@ -464,6 +677,30 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       flex-direction: column;
       gap: calc(2 * var(--u));
     }
+    /* The meter of the whole board: the same displays, at a fixed size */
+    .totals {
+      --u: 1.6px;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--ha-space-2);
+    }
+    .totals .lcd-bezel {
+      flex: 0 1 210px;
+      min-width: 0;
+    }
+    .lcd-label {
+      flex: 1;
+      min-width: 0;
+      font-size: calc(7 * var(--u));
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-align: start;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .lcd-bezel {
       display: flex;
       padding: calc(2 * var(--u));
@@ -471,9 +708,10 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       background: linear-gradient(#4a4a4a, #2a2a2a);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
     }
+    ${lcdBacklight}
     .lcd {
-      --seven-segment-on-color: #1d2614;
-      --seven-segment-off-color: rgba(29, 38, 20, 0.08);
+      --seven-segment-on-color: var(--lcd-ink);
+      --seven-segment-off-color: var(--lcd-ink-off);
       flex: 1;
       min-width: 0;
       display: flex;
@@ -482,9 +720,9 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       gap: calc(3 * var(--u));
       padding: calc(2 * var(--u)) calc(3 * var(--u));
       border-radius: calc(1.5 * var(--u));
-      background: linear-gradient(170deg, #c7d3a4, #a7b582);
+      background: var(--lcd-backlight);
       box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
-      color: #1d2614;
+      color: var(--lcd-ink);
       font-family: var(--ha-font-family-code, monospace);
     }
     /* 4 digits of 27 by 36 units, plus 2 units of margin */

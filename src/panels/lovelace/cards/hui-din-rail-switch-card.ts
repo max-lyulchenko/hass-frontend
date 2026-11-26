@@ -15,7 +15,12 @@ import { forwardHaptic } from "../../../data/haptics";
 import type { HomeAssistant } from "../../../types";
 import { toggleEntity } from "../common/entity/toggle-entity";
 import { findEntities } from "../common/find-entities";
-import { formatLcdValue, lcdPrecision } from "../common/format-lcd-value";
+import {
+  currentAboveMax,
+  formatLcdValue,
+  lcdPrecision,
+  voltageLevel,
+} from "../common/format-lcd-value";
 import { hasConfigChanged } from "../common/has-changed";
 import "../components/hui-din-rail-button";
 import "../components/hui-seven-segment";
@@ -36,6 +41,34 @@ export const READINGS = [
 ] as const;
 
 export const LCD_DIGITS = 4;
+
+/**
+ * Backlight of the LCD displays, set on their container: green-yellow, gray
+ * (`.low`) when the voltage is below the low limit and red (`.high`) when it
+ * is above the high limit. A single display can be colored the same way
+ * (`.lcd.low`, `.lcd.high`), and is red above its max (`.lcd.alarm`, the
+ * current).
+ */
+export const lcdBacklight = css`
+  .lcds {
+    --lcd-backlight: linear-gradient(170deg, #c7d3a4, #a7b582);
+    --lcd-ink: #1d2614;
+    --lcd-ink-off: rgba(29, 38, 20, 0.08);
+  }
+  .lcds.low,
+  .lcd.low {
+    --lcd-backlight: linear-gradient(170deg, #b4b6b1, #8f928c);
+    --lcd-ink: #1f201e;
+    --lcd-ink-off: rgba(31, 32, 30, 0.08);
+  }
+  .lcds.high,
+  .lcd.high,
+  .lcd.alarm {
+    --lcd-backlight: linear-gradient(170deg, #f08a73, #cf4a35);
+    --lcd-ink: #2b0b06;
+    --lcd-ink-off: rgba(43, 11, 6, 0.1);
+  }
+`;
 
 export type ReadingKey = (typeof READINGS)[number]["key"];
 type ReadingLabel = (typeof READINGS)[number]["label"];
@@ -250,7 +283,7 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
         ${
           this._config.lcd_displays
             ? html`
-                <div class="lcds">
+                <div class="lcds ${this._voltageLevel() ?? ""}">
                   ${READINGS.map(({ key, label }) => this._renderLcd(key, label))}
                 </div>
                 <div class="switch-row">${module}</div>
@@ -268,6 +301,36 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
         }
       </ha-card>
     `;
+  }
+
+  // The backlight of the displays: gray below the low voltage, red above the
+  // high one
+  private _voltageLevel() {
+    const entityId = this._config!.voltage_entity;
+    const stateObj = entityId ? this.hass!.states[entityId] : undefined;
+    return stateObj
+      ? voltageLevel(
+          Number(stateObj.state),
+          stateObj.attributes.unit_of_measurement,
+          this._config!.voltage_low,
+          this._config!.voltage_high
+        )
+      : undefined;
+  }
+
+  // The current display turns red above the max current
+  private _currentAlarm(key: ReadingKey) {
+    const entityId = this._config![key];
+    const stateObj = entityId ? this.hass!.states[entityId] : undefined;
+    return (
+      key === "current_entity" &&
+      !!stateObj &&
+      currentAboveMax(
+        Number(stateObj.state),
+        stateObj.attributes.unit_of_measurement,
+        this._config!.max_current
+      )
+    );
   }
 
   private _renderLcd(key: ReadingKey, label: ReadingLabel) {
@@ -299,7 +362,7 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
         aria-label=${`${labelText}: ${valueText}`}
         title=${valueText}
       >
-        <span class="lcd">
+        <span class=${classMap({ lcd: true, alarm: this._currentAlarm(key) })}>
           <span class="lcd-label">${labelText}</span>
           <hui-seven-segment
             class="lcd-digits"
@@ -318,9 +381,16 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       return nothing;
     }
     const stateObj = this.hass!.states[entityId] as HassEntity | undefined;
+    // With a max current, the current is red above it and green below
+    const checked =
+      key === "current_entity" &&
+      this._config!.max_current !== undefined &&
+      !!stateObj &&
+      !Number.isNaN(Number(stateObj.state));
+    const alarm = checked && this._currentAlarm(key);
     return html`
       <button
-        class="reading"
+        class=${classMap({ reading: true, ok: checked && !alarm, alarm })}
         data-entity-id=${entityId}
         @click=${this._showReadingMoreInfo}
       >
@@ -513,6 +583,12 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
+    .reading.ok .value {
+      color: var(--success-color, #43a047);
+    }
+    .reading.alarm .value {
+      color: var(--error-color, #db4437);
+    }
 
     /*
      * Retro LCD displays, like the panel meters of the 80s and 90s.
@@ -549,9 +625,10 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
         inset 0 1px 0 rgba(255, 255, 255, 0.15),
         0 1px 2px rgba(0, 0, 0, 0.3);
     }
+    ${lcdBacklight}
     .lcd {
-      --seven-segment-on-color: #1d2614;
-      --seven-segment-off-color: rgba(29, 38, 20, 0.08);
+      --seven-segment-on-color: var(--lcd-ink);
+      --seven-segment-off-color: var(--lcd-ink-off);
       flex: 1;
       min-width: 0;
       display: flex;
@@ -559,9 +636,9 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       gap: 5px;
       padding: 3px 5px;
       border-radius: 2px;
-      background: linear-gradient(170deg, #c7d3a4, #a7b582);
+      background: var(--lcd-backlight);
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
-      color: #1d2614;
+      color: var(--lcd-ink);
       font-family: var(--ha-font-family-code, monospace);
       text-align: start;
     }

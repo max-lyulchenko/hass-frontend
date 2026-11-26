@@ -77,6 +77,68 @@ const splitUnit = (unit: string): { base: string; factor: number } | null => {
   return null;
 };
 
+/**
+ * A value in its base unit (kW → W, mA → A). Undefined when it is not a
+ * number or its unit has no metric prefixes.
+ */
+export const toBaseUnit = (
+  value: number,
+  unit: string | undefined
+): { value: number; unit: string } | undefined => {
+  const split = unit ? splitUnit(unit) : null;
+  return split && Number.isFinite(value)
+    ? { value: value * split.factor, unit: split.base }
+    : undefined;
+};
+
+export const DEFAULT_VOLTAGE_LOW = 210;
+export const DEFAULT_VOLTAGE_HIGH = 250;
+
+export type VoltageLevel = "low" | "high";
+
+/**
+ * Whether a voltage is below `low` or above `high` volts. Prefixed units
+ * (kV, mV) are converted first. Returns undefined when it is in range, or
+ * when it is not a voltage.
+ */
+export const voltageLevel = (
+  value: number,
+  unit: string | undefined,
+  low = DEFAULT_VOLTAGE_LOW,
+  high = DEFAULT_VOLTAGE_HIGH
+): VoltageLevel | undefined => {
+  const split = unit ? splitUnit(unit) : null;
+  if (!Number.isFinite(value) || split?.base !== "V") {
+    return undefined;
+  }
+  const volts = value * split.factor;
+  if (volts < low) {
+    return "low";
+  }
+  if (volts > high) {
+    return "high";
+  }
+  return undefined;
+};
+
+/**
+ * Whether a current is above `max` amperes. Prefixed units (mA, kA) are
+ * converted first. False without a max, or when it is not a current.
+ */
+export const currentAboveMax = (
+  value: number,
+  unit: string | undefined,
+  max: number | undefined
+): boolean => {
+  const split = unit ? splitUnit(unit) : null;
+  return (
+    max !== undefined &&
+    Number.isFinite(value) &&
+    split?.base === "A" &&
+    Math.abs(value * split.factor) > max
+  );
+};
+
 const BASE_INDEX = PREFIXES.findIndex(({ factor }) => factor === 1);
 
 /**

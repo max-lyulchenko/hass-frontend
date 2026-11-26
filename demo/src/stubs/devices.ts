@@ -1,4 +1,5 @@
 import type { DeviceRegistryEntry } from "../../../src/data/device/device_registry";
+import { demoDinRailPanelDevices } from "../configs/sections/din-rail-panel";
 import { connectivityDevices } from "./connectivity/fixtures";
 import { baseDevice } from "./device_registry";
 
@@ -70,4 +71,5 @@ export const demoDevices: DeviceRegistryEntry[] = [
     parent_device_id: "power-strip",
   },
   ...connectivityDevices,
+  ...demoDinRailPanelDevices,
 ];

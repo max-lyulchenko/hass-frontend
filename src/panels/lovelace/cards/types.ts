@@ -708,6 +708,12 @@ export interface DinRailSwitchCardConfig extends LovelaceCardConfig {
   lcd_displays?: boolean;
   /** Decimals on the LCD displays, 0 (the default) to 2. */
   precision?: number;
+  /** Amperes; the current turns red above it (no limit by default) */
+  max_current?: number;
+  /** Volts; the displays turn gray below it (default 210) */
+  voltage_low?: number;
+  /** Volts; the displays turn red above it (default 250) */
+  voltage_high?: number;
   /** The switch of the module, "din" (the default) or "button". */
   switch_style?: DinRailSwitchStyle;
   theme?: string;
@@ -719,6 +725,8 @@ export interface DinRailPanelModuleConfig {
   power_entity?: string;
   current_entity?: string;
   voltage_entity?: string;
+  /** Amperes; the current display turns red above it */
+  max_current?: number;
 }
 
 export interface DinRailPanelCardConfig extends LovelaceCardConfig {
@@ -727,6 +735,14 @@ export interface DinRailPanelCardConfig extends LovelaceCardConfig {
   columns?: number;
   /** Decimals on the LCD displays, 0 (the default) to 2. */
   precision?: number;
+  voltage_low?: number;
+  voltage_high?: number;
+  /** The meter of the board: total W and A, average V (shown by default) */
+  show_totals?: boolean;
+  /** Entities shown instead of the totals of the modules, like a main meter */
+  total_power_entity?: string;
+  total_current_entity?: string;
+  total_voltage_entity?: string;
   /** The switch of all modules, "din" (the default) or "button". */
   switch_style?: DinRailSwitchStyle;
   /** At most 3 rails of `columns` modules. */

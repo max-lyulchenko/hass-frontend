@@ -10523,6 +10523,12 @@
           "entities": {
             "never_triggered": "Never triggered"
           },
+          "din-rail-panel": {
+            "total_power": "Total power",
+            "total_current": "Total current",
+            "average_voltage": "Avg voltage",
+            "voltage": "Voltage"
+          },
           "din-rail-switch": {
             "power": "Power",
             "current": "Current",
@@ -12086,7 +12092,11 @@
               "description": "This card shows switches as the breakers of a distribution board, with their power, current, and voltage.",
               "columns": "Modules per rail",
               "modules": "Modules",
-              "modules_helper": "A panel holds up to {rails} rails of {columns} modules."
+              "modules_helper": "A panel holds up to {rails} rails of {columns} modules.",
+              "show_totals": "Show the totals (power, current, average voltage)",
+              "total_power_entity": "Total power sensor (instead of the sum of the modules)",
+              "total_current_entity": "Total current sensor (instead of the sum of the modules)",
+              "total_voltage_entity": "Voltage sensor (instead of the average of the modules)"
             },
             "din-rail-switch": {
               "name": "DIN rail switch",
@@ -12101,7 +12111,10 @@
                 "din": "DIN (vertical lever)",
                 "button": "Button (stand-by)"
               },
-              "precision": "Decimals on the LCD displays"
+              "precision": "Decimals on the LCD displays",
+              "max_current": "Max current (red above it)",
+              "voltage_low": "Low voltage (displays turn gray below)",
+              "voltage_high": "High voltage (displays turn red above)"
             },
             "timer-list": {
               "name": "Timer list",

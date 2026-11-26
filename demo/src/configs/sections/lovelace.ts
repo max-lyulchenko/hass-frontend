@@ -192,6 +192,7 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
               current_entity: "sensor.electric_meter_current",
               voltage_entity: "sensor.eletric_meter_voltage",
               lcd_displays: true,
+              max_current: 3,
             },
             {
               type: "tile",
