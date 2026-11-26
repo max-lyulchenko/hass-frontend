@@ -57,6 +57,11 @@ modules:
     max_current: 16 # the current display turns red above it (the rating by default)
 ```
 
+In the visual editor, a breaker (the switch card, or a module of the panel)
+can have a **Device**. Its switch, sensor and rating pickers then offer only
+the entities of that device. The editor saves it as `device` (a device id);
+the cards do not use it.
+
 A breaker shows its rating above the switch, like the print on a real one:
 the value in A of `rating_entity` (a number, input_number or sensor entity).
 Without it, the card uses a number entity of the switch's device ending in

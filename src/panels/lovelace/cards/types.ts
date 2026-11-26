@@ -706,6 +706,8 @@ export interface DinRailSwitchCardConfig extends LovelaceCardConfig {
   current_entity?: string;
   voltage_entity?: string;
   lcd_displays?: boolean;
+  /** Device of the breaker; the editor offers only its entities */
+  device?: string;
   /** Decimals on the LCD displays, 0 (the default) to 2. */
   precision?: number;
   /**
@@ -727,6 +729,8 @@ export interface DinRailSwitchCardConfig extends LovelaceCardConfig {
 export interface DinRailPanelModuleConfig {
   entity: string;
   name?: string;
+  /** Device of the breaker; the editor offers only its entities */
+  device?: string;
   power_entity?: string;
   current_entity?: string;
   voltage_entity?: string;

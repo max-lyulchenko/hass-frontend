@@ -74,6 +74,48 @@ export const voltageLimitsSchema = {
   ],
 } as const satisfies HaFormSchema;
 
+/**
+ * The entities of each device, to offer only the entities of the device of a
+ * breaker
+ */
+export const entitiesByDevice = (
+  entities: HomeAssistant["entities"]
+): Map<string, string[]> => {
+  const byDevice = new Map<string, string[]>();
+  for (const [entityId, entry] of Object.entries(entities)) {
+    if (entry.device_id) {
+      const ids = byDevice.get(entry.device_id) ?? [];
+      ids.push(entityId);
+      byDevice.set(entry.device_id, ids);
+    }
+  }
+  return byDevice;
+};
+
+/** An entity selector that offers only `include`, when it is set. */
+export const limitEntitySelector = <
+  T extends { entity: Record<string, unknown> },
+>(
+  selector: T,
+  include: string[] | undefined
+): T =>
+  include
+    ? { ...selector, entity: { ...selector.entity, include_entities: include } }
+    : selector;
+
+// The device of a breaker: one with a switch
+export const breakerDeviceSelector = {
+  device: { entity: { domain: DIN_RAIL_SWITCH_DOMAINS } },
+};
+
+export const sensorSelector = (deviceClass: string) => ({
+  entity: { filter: { domain: "sensor", device_class: deviceClass } },
+});
+
+export const switchEntitySelector = {
+  entity: { filter: { domain: DIN_RAIL_SWITCH_DOMAINS } },
+};
+
 // The rating of a breaker: a number entity, as breakers report it, or a
 // helper or a sensor
 export const ratingEntitySelector = {
@@ -99,6 +141,7 @@ const cardConfigStruct = assign(
   baseLovelaceCardConfig,
   object({
     entity: optional(string()),
+    device: optional(string()),
     name: optional(entityNameStruct),
     power_entity: optional(string()),
     current_entity: optional(string()),
@@ -114,10 +157,6 @@ const cardConfigStruct = assign(
   })
 );
 
-const sensorSelector = (deviceClass: string) => ({
-  entity: { filter: { domain: "sensor", device_class: deviceClass } },
-});
-
 @customElement("hui-din-rail-switch-card-editor")
 export class HuiDinRailSwitchCardEditor
   extends LitElement
@@ -132,15 +171,17 @@ export class HuiDinRailSwitchCardEditor
     this._config = config;
   }
 
+  private _entitiesByDevice = memoizeOne(entitiesByDevice);
+
+  // With a device, the entity pickers offer only its entities
   private _schema = memoizeOne(
-    (localize: LocalizeFunc) =>
+    (localize: LocalizeFunc, include: string[] | undefined) =>
       [
+        { name: "device", selector: breakerDeviceSelector },
         {
           name: "entity",
           required: true,
-          selector: {
-            entity: { filter: { domain: DIN_RAIL_SWITCH_DOMAINS } },
-          },
+          selector: limitEntitySelector(switchEntitySelector, include),
         },
         {
           name: "name",
@@ -148,10 +189,22 @@ export class HuiDinRailSwitchCardEditor
           context: { entity: "entity" },
         },
         { name: "switch_style", selector: switchStyleSelector(localize) },
-        { name: "power_entity", selector: sensorSelector("power") },
-        { name: "current_entity", selector: sensorSelector("current") },
-        { name: "voltage_entity", selector: sensorSelector("voltage") },
-        { name: "rating_entity", selector: ratingEntitySelector },
+        {
+          name: "power_entity",
+          selector: limitEntitySelector(sensorSelector("power"), include),
+        },
+        {
+          name: "current_entity",
+          selector: limitEntitySelector(sensorSelector("current"), include),
+        },
+        {
+          name: "voltage_entity",
+          selector: limitEntitySelector(sensorSelector("voltage"), include),
+        },
+        {
+          name: "rating_entity",
+          selector: limitEntitySelector(ratingEntitySelector, include),
+        },
         { name: "max_current", selector: maxCurrentSelector },
         { name: "lcd_displays", selector: { boolean: {} } },
         { name: "precision", selector: precisionSelector },
@@ -173,7 +226,14 @@ export class HuiDinRailSwitchCardEditor
       <ha-form
         .hass=${this.hass}
         .data=${data}
-        .schema=${this._schema(this.hass.localize)}
+        .schema=${this._schema(
+          this.hass.localize,
+          this._config.device
+            ? (this._entitiesByDevice(this.hass.entities).get(
+                this._config.device
+              ) ?? [])
+            : undefined
+        )}
         .computeLabel=${this._computeLabelCallback}
         @value-changed=${this._valueChanged}
       ></ha-form>
@@ -198,6 +258,7 @@ export class HuiDinRailSwitchCardEditor
       case "lcd_displays":
       case "switch_style":
       case "precision":
+      case "device":
       case "rating_entity":
       case "max_current":
       case "voltage_low":
