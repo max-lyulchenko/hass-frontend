@@ -3,6 +3,7 @@ import type { DemoConfig } from "../types";
 import {
   demoDinRailPanelCard,
   demoDinRailPanelDashboardCard,
+  demoDinRailPanelDashboardLeverCard,
 } from "./din-rail-panel";
 
 export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
@@ -385,7 +386,10 @@ export const demoLovelaceSections: DemoConfig["lovelace"] = (localize) => ({
         {
           type: "grid",
           column_span: 4,
-          cards: [demoDinRailPanelDashboardCard],
+          cards: [
+            demoDinRailPanelDashboardCard,
+            demoDinRailPanelDashboardLeverCard,
+          ],
         },
       ],
     },

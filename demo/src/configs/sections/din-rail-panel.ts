@@ -115,6 +115,12 @@ export const demoDinRailPanelDashboardCard: LovelaceCardConfig = {
   })),
 };
 
+// The same panel with DIN rail levers instead of stand-by buttons
+export const demoDinRailPanelDashboardLeverCard: LovelaceCardConfig = {
+  ...demoDinRailPanelDashboardCard,
+  switch_style: "din",
+};
+
 export const demoDinRailPanelCard: LovelaceCardConfig = {
   type: "custom:din-rail-panel-card",
   title: "Distribution board",
