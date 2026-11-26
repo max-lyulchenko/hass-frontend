@@ -25,6 +25,19 @@ const CIRCUITS: [id: string, name: string, on: boolean, power: number][] = [
 
 const VOLTAGE = 231.4;
 
+// Breaker ratings in A, 16 A unless listed. The bathroom is over its rating
+// (7.9 A), to show the alarm.
+const RATINGS: Record<string, number> = {
+  main: 40,
+  oven: 20,
+  heat_pump: 20,
+  ev_charger: 50,
+  bathroom: 6,
+  living_room: 10,
+  bedrooms: 10,
+  garden: 10,
+};
+
 // A device per circuit, so the more-info dialog of its entities finds it
 export const demoDinRailPanelDevices: DeviceRegistryEntry[] = CIRCUITS.map(
   ([id, name]) => ({
@@ -67,6 +80,20 @@ export const demoDinRailPanelEntities: EntityInput[] = CIRCUITS.flatMap(
       sensor("power", power, "W"),
       sensor("current", Math.round((power / VOLTAGE) * 1000) / 1000, "A"),
       sensor("voltage", on ? VOLTAGE : 0, "V"),
+      // The rating of the breaker, which the panel prints on it
+      {
+        entity_id: `number.circuit_${id}_over_current_threshold`,
+        state: String(RATINGS[id] ?? 16),
+        device_id,
+        attributes: {
+          unit_of_measurement: "A",
+          min: 1,
+          max: 63,
+          step: 1,
+          mode: "box",
+          friendly_name: `${name} over current threshold`,
+        },
+      },
     ];
   }
 );

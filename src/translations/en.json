@@ -12112,7 +12112,8 @@
                 "button": "Button (stand-by)"
               },
               "precision": "Decimals on the LCD displays",
-              "max_current": "Max current (red above it)",
+              "rating_entity": "Breaker rating (A, found on the device when empty)",
+              "max_current": "Max current (red above it, the rating when empty)",
               "voltage_low": "Low voltage (displays turn gray below)",
               "voltage_high": "High voltage (displays turn red above)"
             },

@@ -4,11 +4,13 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import { classMap } from "lit/directives/class-map";
 import { styleMap } from "lit/directives/style-map";
+import memoizeOne from "memoize-one";
 import { STATES_OFF } from "../../../common/const";
 import { UNAVAILABLE } from "../../../data/entity/entity";
 import { applyThemesOnElement } from "../../../common/dom/apply_themes_on_element";
 import { fireEvent } from "../../../common/dom/fire_event";
 import { computeDomain } from "../../../common/entity/compute_domain";
+import { computeObjectId } from "../../../common/entity/compute_object_id";
 import { stateColorCss } from "../../../common/entity/state_color";
 import "../../../components/ha-card";
 import { forwardHaptic } from "../../../data/haptics";
@@ -19,6 +21,7 @@ import {
   currentAboveMax,
   formatLcdValue,
   lcdPrecision,
+  toBaseUnit,
   voltageLevel,
 } from "../common/format-lcd-value";
 import { hasConfigChanged } from "../common/has-changed";
@@ -102,6 +105,50 @@ export const findDeviceReadings = (
   return readings;
 };
 
+// The number entity with the rating of a breaker, in amperes, as smart
+// breakers report it: number.<device>_over_current_threshold
+const RATING_SUFFIX = "_over_current_threshold";
+
+/**
+ * The entity with the rating of the breaker of a switch: a number entity of
+ * its device ending in `_over_current_threshold`, or else the one named
+ * after the switch. It may not exist.
+ */
+export const findRatingEntity = (
+  entities: HomeAssistant["entities"],
+  entityId: string
+): string => {
+  const deviceId = entities[entityId]?.device_id;
+  const onDevice = deviceId
+    ? Object.keys(entities).find(
+        (id) =>
+          computeDomain(id) === "number" &&
+          id.endsWith(RATING_SUFFIX) &&
+          entities[id].device_id === deviceId
+      )
+    : undefined;
+  return onDevice ?? `number.${computeObjectId(entityId)}${RATING_SUFFIX}`;
+};
+
+/** The rating in amperes of a rating entity, when it has one. */
+export const readRating = (
+  hass: HomeAssistant,
+  ratingEntityId: string
+): number | undefined => {
+  const stateObj = hass.states[ratingEntityId];
+  if (!stateObj) {
+    return undefined;
+  }
+  const value = Number(stateObj.state);
+  const unit = stateObj.attributes.unit_of_measurement;
+  const amperes = unit ? toBaseUnit(value, unit) : { value, unit: "A" };
+  return amperes?.unit === "A" && amperes.value > 0 ? amperes.value : undefined;
+};
+
+/** A rating as printed on a breaker: 16A, 6A, 0.5A. */
+export const formatRating = (rating: number): string =>
+  `${Number(rating.toFixed(1))}A`;
+
 @customElement("hui-din-rail-switch-card")
 export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -136,13 +183,41 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     return this._config?.switch_style === "button" ? "button" : "din";
   }
 
-  // The LCD version needs 4 rows with a DIN switch and 3 with a button,
-  // see the sizes in the styles
+  // The rating entity of the card, else the one found for the switch
+  private _ratingEntity = memoizeOne(
+    (
+      entityId: string,
+      ratingEntity: string | undefined,
+      entities: HomeAssistant["entities"]
+    ) => ratingEntity || findRatingEntity(entities, entityId)
+  );
+
+  /** The rating of the breaker in amperes, when it reports one. */
+  private get _rating(): number | undefined {
+    return this._config && this.hass
+      ? readRating(
+          this.hass,
+          this._ratingEntity(
+            this._config.entity,
+            this._config.rating_entity,
+            this.hass.entities
+          )
+        )
+      : undefined;
+  }
+
+  // The max current: the one of the card, else the rating of the breaker
+  private get _maxCurrent(): number | undefined {
+    return this._config?.max_current ?? this._rating;
+  }
+
+  // The LCD version needs 4 rows, and 5 with a DIN switch and a rating, see
+  // the sizes in the styles
   private get _rows(): number {
     if (!this._config?.lcd_displays) {
       return 3;
     }
-    return this._switchStyle === "button" ? 3 : 4;
+    return this._switchStyle === "button" || this._rating === undefined ? 4 : 5;
   }
 
   public getCardSize(): number {
@@ -184,6 +259,11 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     }
     return [
       this._config.entity,
+      this._ratingEntity(
+        this._config.entity,
+        this._config.rating_entity,
+        this.hass.entities
+      ),
       ...READINGS.map(({ key }) => this._config![key]),
     ].some(
       (entityId) =>
@@ -231,6 +311,8 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     const unavailable = stateObj.state === UNAVAILABLE;
     const name = this.hass.formatEntityName(stateObj, this._config.name);
     const stateLabel = this.hass.formatEntityState(stateObj);
+    // The rating of the breaker, printed on it
+    const rating = this._rating;
 
     const module = html`
       <div
@@ -242,6 +324,11 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
         })}
         style=${styleMap({ "--active-color": stateColorCss(stateObj) })}
       >
+        ${
+          rating !== undefined
+            ? html`<span class="rating">${formatRating(rating)}</span>`
+            : nothing
+        }
         ${
           this._switchStyle === "button"
             ? html`
@@ -328,7 +415,7 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       currentAboveMax(
         Number(stateObj.state),
         stateObj.attributes.unit_of_measurement,
-        this._config!.max_current
+        this._maxCurrent
       )
     );
   }
@@ -384,7 +471,7 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     // With a max current, the current is red above it and green below
     const checked =
       key === "current_entity" &&
-      this._config!.max_current !== undefined &&
+      this._maxCurrent !== undefined &&
       !!stateObj &&
       !Number.isNaN(Number(stateObj.state));
     const alarm = checked && this._currentAlarm(key);
@@ -454,7 +541,7 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       min-width: 0;
     }
     .name {
-      font-size: var(--ha-font-size-l);
+      font-size: var(--ha-font-size-xl);
       font-weight: var(--ha-font-weight-medium);
       text-align: start;
       overflow: hidden;
@@ -478,7 +565,7 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
      * The breaker module, drawn like a single pole DIN rail switch.
      * A button module is 8 + button 18 + 8 + border 2 = 36px high. A DIN
      * module is twice that: 4 + mark 8 + 2 + slot 42 + 2 + mark 8 + 4
-     * + border 2 = 72px.
+     * + border 2 = 72px. A rating adds 10 + 20 + 10 + gap 2 = 42px.
      */
     .module {
       --module-color: var(--ha-color-fill-neutral-quiet-resting, #e8e8e8);
@@ -500,6 +587,15 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     }
     .module.button {
       padding: 8px 0;
+    }
+    /* The rating, printed on the breaker like on a real one, with half its
+       font size above and below it */
+    .rating {
+      font-size: 20px;
+      font-weight: var(--ha-font-weight-bold);
+      line-height: 1;
+      margin: 0.5em 0;
+      color: var(--secondary-text-color);
     }
     .mark {
       font-size: 8px;
@@ -593,10 +689,11 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     /*
      * Retro LCD displays, like the panel meters of the 80s and 90s.
      * Sized to fit a card of 6 columns, which can be as
-     * narrow as 156px: padding 20 + header 18 + gap 8 + displays 3 x 25
+     * narrow as 156px: padding 20 + header 24 + gap 8 + displays 3 x 30
      * + gaps 8 + gap 8 + switch.
-     * With a DIN switch (72px) the card is 209px high and fits 4 rows
-     * (248px). With a button (36px) it is 173px and fits 3 rows (184px).
+     * With a DIN switch (72px) the card is 230px high and fits 4 rows
+     * (248px), with a rating (114px) 272px and 5 rows (312px). With a button
+     * (36px) it is 194px, with a rating (78px) 236px: 4 rows.
      */
     ha-card.lcd-mode {
       padding: 10px;
@@ -604,8 +701,8 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
       overflow: hidden;
     }
     .lcd-mode .name {
-      font-size: 14px;
-      line-height: 18px;
+      font-size: 19px;
+      line-height: 24px;
     }
     .lcd-mode .state {
       font-size: 11px;
@@ -656,8 +753,8 @@ export class HuiDinRailSwitchCard extends LitElement implements LovelaceCard {
     /* 4 digits of 27 by 36 units, plus 2 units of margin */
     .lcd-digits {
       flex: none;
-      height: 15px;
-      width: calc(15px * 110 / 36);
+      height: 19px;
+      width: calc(19px * 110 / 36);
     }
     .lcd-unit {
       flex: none;

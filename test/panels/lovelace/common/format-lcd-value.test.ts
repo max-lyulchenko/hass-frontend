@@ -123,8 +123,12 @@ describe("formatLcdValue", () => {
     expect(lcd(-1500, "W")).toEqual({ digits: "-1.50", unit: "kW" });
   });
 
-  it("shows zero with two decimals", () => {
-    expect(lcd(0, "W")).toEqual({ digits: "0.00", unit: "W" });
+  it("shows zero without decimals", () => {
+    expect(lcd(0, "W")).toEqual({ digits: "0", unit: "W" });
+    expect(lcd(0, "W", 2)).toEqual({ digits: "0", unit: "W" });
+    expect(lcd(0, "kW")).toEqual({ digits: "0", unit: "W" });
+    expect(lcd(-0, "A")).toEqual({ digits: "0", unit: "A" });
+    expect(lcd(0, "%")).toEqual({ digits: "0", unit: "%" });
   });
 
   it("does not add a prefix to other units", () => {

@@ -74,6 +74,12 @@ export const voltageLimitsSchema = {
   ],
 } as const satisfies HaFormSchema;
 
+// The rating of a breaker: a number entity, as breakers report it, or a
+// helper or a sensor
+export const ratingEntitySelector = {
+  entity: { filter: { domain: ["number", "input_number", "sensor"] } },
+};
+
 export const maxCurrentSelector = {
   number: {
     min: 0,
@@ -100,6 +106,7 @@ const cardConfigStruct = assign(
     lcd_displays: optional(boolean()),
     switch_style: optional(switchStyleStruct),
     precision: optional(number()),
+    rating_entity: optional(string()),
     max_current: optional(number()),
     voltage_low: optional(number()),
     voltage_high: optional(number()),
@@ -144,6 +151,7 @@ export class HuiDinRailSwitchCardEditor
         { name: "power_entity", selector: sensorSelector("power") },
         { name: "current_entity", selector: sensorSelector("current") },
         { name: "voltage_entity", selector: sensorSelector("voltage") },
+        { name: "rating_entity", selector: ratingEntitySelector },
         { name: "max_current", selector: maxCurrentSelector },
         { name: "lcd_displays", selector: { boolean: {} } },
         { name: "precision", selector: precisionSelector },
@@ -190,6 +198,7 @@ export class HuiDinRailSwitchCardEditor
       case "lcd_displays":
       case "switch_style":
       case "precision":
+      case "rating_entity":
       case "max_current":
       case "voltage_low":
       case "voltage_high":

@@ -708,7 +708,12 @@ export interface DinRailSwitchCardConfig extends LovelaceCardConfig {
   lcd_displays?: boolean;
   /** Decimals on the LCD displays, 0 (the default) to 2. */
   precision?: number;
-  /** Amperes; the current turns red above it (no limit by default) */
+  /**
+   * The rating of the breaker in A, printed on it. Found on the device of the
+   * switch (number.*_over_current_threshold) when not set.
+   */
+  rating_entity?: string;
+  /** Amperes; the current turns red above it (the rating by default) */
   max_current?: number;
   /** Volts; the displays turn gray below it (default 210) */
   voltage_low?: number;
@@ -725,7 +730,9 @@ export interface DinRailPanelModuleConfig {
   power_entity?: string;
   current_entity?: string;
   voltage_entity?: string;
-  /** Amperes; the current display turns red above it */
+  /** The rating of the breaker, see DinRailSwitchCardConfig */
+  rating_entity?: string;
+  /** Amperes; the current display turns red above it (the rating by default) */
   max_current?: number;
 }
 

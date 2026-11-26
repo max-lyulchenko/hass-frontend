@@ -32,6 +32,7 @@ import {
   switchStyleSelector,
   switchStyleStruct,
   maxCurrentSelector,
+  ratingEntitySelector,
   VOLTAGE_LIMIT_DEFAULTS,
   voltageLimitsSchema,
 } from "./hui-din-rail-switch-card-editor";
@@ -42,6 +43,7 @@ const moduleStruct = object({
   power_entity: optional(string()),
   current_entity: optional(string()),
   voltage_entity: optional(string()),
+  rating_entity: optional(string()),
   max_current: optional(number()),
 });
 
@@ -134,6 +136,12 @@ export class HuiDinRailPanelCardEditor
                     "ui.panel.lovelace.editor.card.din-rail-switch.voltage_entity"
                   ),
                   selector: sensorSelector("voltage"),
+                },
+                rating_entity: {
+                  label: localize(
+                    "ui.panel.lovelace.editor.card.din-rail-switch.rating_entity"
+                  ),
+                  selector: ratingEntitySelector,
                 },
                 max_current: {
                   label: localize(

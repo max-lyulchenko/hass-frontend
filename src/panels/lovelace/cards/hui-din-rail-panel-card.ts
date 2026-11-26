@@ -35,7 +35,10 @@ import {
   LCD_DIGITS,
   READINGS,
   findDeviceReadings,
+  findRatingEntity,
+  formatRating,
   lcdBacklight,
+  readRating,
 } from "./hui-din-rail-switch-card";
 import type { ReadingKey } from "./hui-din-rail-switch-card";
 import type { DinRailPanelCardConfig, DinRailPanelModuleConfig } from "./types";
@@ -163,6 +166,35 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     )
   );
 
+  // The rating entity of each module, by switch: its own, else the one
+  // found for the switch
+  private _ratingEntities = memoizeOne(
+    (
+      modules: DinRailPanelModuleConfig[],
+      entities: HomeAssistant["entities"]
+    ): Record<string, string> =>
+      Object.fromEntries(
+        modules
+          .filter((module) => module.entity)
+          .map((module) => [
+            module.entity,
+            module.rating_entity || findRatingEntity(entities, module.entity),
+          ])
+      )
+  );
+
+  /** The rating of the breaker of a module in amperes, when it reports one. */
+  private _rating(module: DinRailPanelModuleConfig): number | undefined {
+    if (!module.entity) {
+      return undefined;
+    }
+    const entityId = this._ratingEntities(
+      this._config!.modules,
+      this.hass!.entities
+    )[module.entity];
+    return readRating(this.hass!, entityId);
+  }
+
   // Show a display row only when a module of the panel uses it, so every
   // module of the panel lines up
   private _shownReadings = memoizeOne((modules: DinRailPanelModuleConfig[]) =>
@@ -182,6 +214,9 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     }
     return [
       ...this._entityIds(this._config.modules),
+      ...Object.values(
+        this._ratingEntities(this._config.modules, this.hass.entities)
+      ),
       ...TOTALS.map(({ override }) => this._config![override]).filter(
         (id): id is string => Boolean(id)
       ),
@@ -390,6 +425,13 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     const stateLabel = stateObj
       ? this.hass!.formatEntityState(stateObj)
       : this.hass!.localize("state.default.unavailable");
+    // The rating of the breaker, printed on it, is the max current unless
+    // the module sets one
+    const rating = this._rating(module);
+    const ratingLabel =
+      rating !== undefined
+        ? html`<span class="rating">${formatRating(rating)}</span>`
+        : nothing;
 
     return html`
       <div class="cell">
@@ -416,7 +458,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
                       this._renderLcd(
                         module[key],
                         key === "current_entity"
-                          ? module.max_current
+                          ? (module.max_current ?? rating)
                           : undefined
                       )
                     )}
@@ -428,6 +470,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
             button
               ? html`
                   <div class="breaker">
+                    ${ratingLabel}
                     <hui-din-rail-button
                       data-entity-id=${module.entity}
                       .on=${isOn}
@@ -439,6 +482,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
                 `
               : html`
                   <div class="breaker">
+                    ${ratingLabel}
                     <span class="mark">I</span>
                     <button
                       class="slot"
@@ -557,14 +601,16 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
   /*
    * Every module is drawn on a grid of 92 units wide, the unit (--u) being a
    * 92nd of the module width, so a module scales with the card. Modules stop
-   * growing at 120px wide.
+   * growing at 84px wide.
    *
-   * Module height: padding 4 + label 11 + gap 4 + displays 3 x 21 + gaps 2 x 2
-   * + gap 4 + switch + padding 6. The button switch is 20 units
-   * high, the DIN switch twice that: mark 6 + gap 1 + slot 26 + gap 1
-   * + mark 6 = 40 units.
-   * Display width: digits 40 + gap 3 + unit 19 + padding 6 + bezel 4 = 72 of
-   * the 84 units inside the module.
+   * Module height: padding 4 + label 14 + gap 4 + displays 3 x 26.25 + gaps
+   * 2 x 2 + gap 4 + rating 9 + 18 + 9 + gap 1 + switch + padding 6.
+   * The rating has a font of 18 units, with half its font size above and
+   * below it. The button switch
+   * is 20 units high, the DIN switch twice that: mark 6 + gap 1 + slot 26
+   * + gap 1 + mark 6 = 40 units.
+   * Display width: digits 49.7 + gap 3 + unit 19 + padding 6 + bezel 4 = 81.7
+   * of the 84 units inside the module.
    */
   static styles = css`
     ha-card {
@@ -590,7 +636,7 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     }
 
     .enclosure {
-      --module-max-width: 120px;
+      --module-max-width: 84px;
       --rail-padding: 10px;
       --module-gap: 2px;
       box-sizing: border-box;
@@ -662,8 +708,8 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
     }
     .label {
       width: 100%;
-      font-size: calc(8 * var(--u));
-      line-height: calc(11 * var(--u));
+      font-size: calc(11 * var(--u));
+      line-height: calc(14 * var(--u));
       font-weight: var(--ha-font-weight-medium);
       text-align: center;
       overflow: hidden;
@@ -741,12 +787,30 @@ export class HuiDinRailPanelCard extends LitElement implements LovelaceCard {
       white-space: nowrap;
     }
 
+    /* The displays of a module: digits of 16.25 units, 26.25 units high */
+    .module .lcd {
+      padding: calc(3 * var(--u));
+    }
+    .module .lcd-digits {
+      height: calc(16.25 * var(--u));
+      width: calc(16.25 * var(--u) * 110 / 36);
+    }
+
     .breaker {
       margin-top: auto;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: var(--u);
+    }
+    /* The rating, printed on the breaker like on a real one */
+    .rating {
+      font-size: calc(18 * var(--u));
+      font-weight: var(--ha-font-weight-bold);
+      line-height: 1;
+      margin: 0.5em 0;
+      letter-spacing: 0.02em;
+      color: var(--secondary-text-color);
     }
     hui-din-rail-button {
       --button-height: calc(20 * var(--u));

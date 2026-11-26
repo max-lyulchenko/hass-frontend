@@ -32,6 +32,8 @@ voltage_entity: sensor.main_voltage
 switch_style: din # din (vertical lever) or button (stand-by button)
 lcd_displays: true # retro LCD displays
 precision: 1 # 0-2 decimals on the LCD displays
+rating_entity: number.main_breaker_over_current_threshold # optional, see below
+max_current: 40 # optional: the current turns red above it (the rating by default)
 ```
 
 ```yaml
@@ -51,7 +53,16 @@ modules:
     power_entity: sensor.kitchen_power
     current_entity: sensor.kitchen_current
     voltage_entity: sensor.kitchen_voltage
+    rating_entity: number.kitchen_over_current_threshold # optional, see below
+    max_current: 16 # the current display turns red above it (the rating by default)
 ```
+
+A breaker shows its rating above the switch, like the print on a real one:
+the value in A of `rating_entity` (a number, input_number or sensor entity).
+Without it, the card uses a number entity of the switch's device ending in
+`_over_current_threshold`, or else `number.<switch>_over_current_threshold`
+(`number.kitchen_over_current_threshold` for `switch.kitchen`), when there is
+one. The rating is the max current unless `max_current` is set.
 
 When the sensors are left out, the cards look for power, current and voltage
 sensors on the device of the switch.

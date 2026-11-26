@@ -146,8 +146,8 @@ const BASE_INDEX = PREFIXES.findIndex(({ factor }) => factor === 1);
  * value is shown in its base unit (W, A, V, ...) with `precision` decimals.
  * It switches to a larger prefix (k, M, ...) when it does not fit the digits,
  * and to a smaller one (m, µ) when it is below 1. Fewer decimals are shown
- * when they do not fit. A minus sign takes a digit. Returns dashes when the
- * value cannot be shown.
+ * when they do not fit. A minus sign takes a digit. Zero is shown as "0".
+ * Returns dashes when the value cannot be shown.
  */
 export const formatLcdValue = (
   value: number,
@@ -158,6 +158,10 @@ export const formatLcdValue = (
   const dashes = { digits: "-".repeat(size), unit: unit ?? "" };
   if (!Number.isFinite(value)) {
     return dashes;
+  }
+  if (value === 0) {
+    // Zero needs no decimals, whatever the precision
+    return { digits: "0", unit: (unit && splitUnit(unit)?.base) ?? unit ?? "" };
   }
   const negative = value < 0;
   const sign = negative ? "-" : "";
@@ -173,9 +177,6 @@ export const formatLcdValue = (
   }
 
   const base = Math.abs(value) * split.factor;
-  if (base === 0) {
-    return { digits: fitDigits(0, maxDigits, precision)!, unit: split.base };
-  }
 
   // Start at the base unit, or at the first smaller prefix that gives an
   // integer digit for values below 1, and move to larger prefixes until the
