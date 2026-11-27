@@ -105,6 +105,7 @@ export const demoDinRailPanelDashboardCard: LovelaceCardConfig = {
   title: "Distribution board",
   columns: 12,
   switch_style: "button",
+  zoom_on_hover: true,
   modules: CIRCUITS.slice(0, 12).map(([id], i) => ({
     entity: `switch.circuit_${id}`,
     power_entity: "sensor.electric_meter_power",
@@ -126,6 +127,7 @@ export const demoDinRailPanelCard: LovelaceCardConfig = {
   title: "Distribution board",
   columns: 12,
   switch_style: "button",
+  zoom_on_hover: true,
   modules: CIRCUITS.map(([id]) => ({
     entity: `switch.circuit_${id}`,
     power_entity: `sensor.circuit_${id}_power`,
